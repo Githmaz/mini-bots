@@ -4,53 +4,62 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.dnd.*;
-
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import javax.imageio.ImageIO;
 
 public class PicLayoutApp {
-
     private static final List<File> userImages = new ArrayList<>();
-    private static final JPanel previewPanel = new JPanel();
     private static final JLabel statusLabel = new JLabel("Drag & drop up to 3 images");
-    private static final JButton generateBtn = new JButton("Generate Word Document");
+    private static final JPanel previewPanel = new JPanel();
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(PicLayoutApp::createUI);
-    }
-
-    private static void createUI() {
-        JFrame frame = new JFrame("📄 PicLayout App");
+        JFrame frame = new JFrame("PicLayout Generator");
+        frame.setSize(500, 700);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(600, 450);
         frame.setLayout(new BorderLayout(10, 10));
-        frame.setLocationRelativeTo(null); // Center window
+        frame.setLocationRelativeTo(null);
 
-        // Top instructions
-        JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 0, 10));
-        statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        topPanel.add(statusLabel, BorderLayout.CENTER);
-        frame.add(topPanel, BorderLayout.NORTH);
-
-        // Image preview panel
-        previewPanel.setLayout(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        // Preview panel (vertical layout)
+        previewPanel.setLayout(new BoxLayout(previewPanel, BoxLayout.Y_AXIS));
+        previewPanel.setBackground(Color.WHITE);
         JScrollPane scrollPane = new JScrollPane(previewPanel);
-        scrollPane.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+        scrollPane.setPreferredSize(new Dimension(460, 500));
         frame.add(scrollPane, BorderLayout.CENTER);
 
-        // Bottom control panel
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton clearBtn = new JButton("Remove All");
-        clearBtn.addActionListener(e -> {
-            userImages.clear();
-            refreshPreview();
+        // Top label
+        statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        frame.add(statusLabel, BorderLayout.NORTH);
+
+        // Bottom generate button
+        JButton generateBtn = new JButton("Generate Word Document");
+        frame.add(generateBtn, BorderLayout.SOUTH);
+
+        // Enable drag-and-drop anywhere
+        new DropTarget(frame, new DropTargetAdapter() {
+            @Override
+            public void drop(DropTargetDropEvent event) {
+                try {
+                    event.acceptDrop(DnDConstants.ACTION_COPY);
+                    List<File> droppedFiles = (List<File>) event.getTransferable()
+                            .getTransferData(DataFlavor.javaFileListFlavor);
+
+                    for (File file : droppedFiles) {
+                        if (file.getName().toLowerCase().matches(".*\\.(png|jpg|jpeg)")) {
+                            if (userImages.size() < 3) {
+                                userImages.add(file);
+                            }
+                        }
+                    }
+                    updatePreview();
+                } catch (Exception ex) {
+                    statusLabel.setText("❌ Error reading dropped files.");
+                    ex.printStackTrace();
+                }
+            }
         });
 
-        generateBtn.setEnabled(false);
+        // Generate action
         generateBtn.addActionListener(e -> {
             String[] paths = new String[3];
             for (int i = 0; i < 3; i++) {
@@ -61,71 +70,47 @@ public class PicLayoutApp {
                 }
             }
             PicLayout.main(paths);
-            JOptionPane.showMessageDialog(frame, "✅ DOCX created at /doc/output.docx");
-        });
-
-        bottomPanel.add(clearBtn);
-        bottomPanel.add(generateBtn);
-        frame.add(bottomPanel, BorderLayout.SOUTH);
-
-        // Drag and drop support
-        new DropTarget(previewPanel, new DropTargetAdapter() {
-            @Override
-            public void drop(DropTargetDropEvent event) {
-                try {
-                    event.acceptDrop(DnDConstants.ACTION_COPY);
-                    List<File> dropped = (List<File>) event.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
-                    for (File file : dropped) {
-                        if (userImages.size() < 3 && file.getName().matches(".*\\.(png|jpg|jpeg)")) {
-                            userImages.add(file);
-                        }
-                    }
-                    refreshPreview();
-                } catch (Exception ex) {
-                    statusLabel.setText("❌ Drop failed.");
-                    ex.printStackTrace();
-                }
-            }
+            JOptionPane.showMessageDialog(frame, "✅ Word file created in /doc folder");
         });
 
         frame.setVisible(true);
     }
 
-    private static void refreshPreview() {
+    private static void updatePreview() {
         previewPanel.removeAll();
+        int width = 360;
+
         for (int i = 0; i < userImages.size(); i++) {
-            File imgFile = userImages.get(i);
-            JPanel imgHolder = new JPanel(new BorderLayout());
-            imgHolder.setPreferredSize(new Dimension(130, 130));
-            imgHolder.setBorder(BorderFactory.createLineBorder(Color.GRAY));
-
+            File file = userImages.get(i);
             try {
-                BufferedImage img = ImageIO.read(imgFile);
-                ImageIcon icon = new ImageIcon(img.getScaledInstance(120, 100, Image.SCALE_SMOOTH));
-                JLabel imgLabel = new JLabel(icon);
-                imgLabel.setHorizontalAlignment(SwingConstants.CENTER);
-                imgHolder.add(imgLabel, BorderLayout.CENTER);
+                ImageIcon icon = new ImageIcon(file.getAbsolutePath());
+                int originalWidth = icon.getIconWidth();
+                int originalHeight = icon.getIconHeight();
+                int newHeight = (int) ((double) width / originalWidth * originalHeight);
 
+                Image scaled = icon.getImage().getScaledInstance(width, newHeight, Image.SCALE_SMOOTH);
+                JLabel imgLabel = new JLabel(new ImageIcon(scaled));
+
+                // Container with remove button
+                JPanel imageBox = new JPanel(new BorderLayout());
                 JButton removeBtn = new JButton("X");
-                removeBtn.setForeground(Color.RED);
-                removeBtn.setMargin(new Insets(2, 5, 2, 5));
-                removeBtn.setFont(new Font("Arial", Font.BOLD, 12));
                 int indexToRemove = i;
                 removeBtn.addActionListener(e -> {
                     userImages.remove(indexToRemove);
-                    refreshPreview();
+                    updatePreview();
                 });
 
-                imgHolder.add(removeBtn, BorderLayout.NORTH);
-                previewPanel.add(imgHolder);
+                imageBox.add(removeBtn, BorderLayout.NORTH);
+                imageBox.add(imgLabel, BorderLayout.CENTER);
+                imageBox.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+                previewPanel.add(imageBox);
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
 
-        statusLabel.setText(userImages.size() + " image(s) selected");
-        generateBtn.setEnabled(true);
         previewPanel.revalidate();
         previewPanel.repaint();
+        statusLabel.setText(userImages.size() + " image(s) selected");
     }
 }
