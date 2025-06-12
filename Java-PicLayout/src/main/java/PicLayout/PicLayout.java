@@ -39,7 +39,9 @@ public class PicLayout {
                 document.createParagraph(); // Spacer
             }
 
-            String outputPath = "doc/output.docx";
+            String desktopPath = System.getProperty("user.home") + File.separator + "Desktop";
+            String outputPath = desktopPath + File.separator + "output.docx";
+
             try (FileOutputStream out = new FileOutputStream(outputPath)) {
                 document.write(out);
             }
