@@ -3,11 +3,12 @@ package PicLayout;
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.poi.util.Units;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.*;
 
 public class PicLayout {
     public static void main(String[] args) {
-
         try {
             File outputFolder = new File("doc");
             if (!outputFolder.exists()) outputFolder.mkdir();
@@ -23,7 +24,16 @@ public class PicLayout {
                 XWPFRun run = paragraph.createRun();
 
                 try (InputStream is = new FileInputStream(imgPath)) {
-                    run.addPicture(is, Document.PICTURE_TYPE_PNG, imgPath, Units.toEMU(150), Units.toEMU(150));
+                    BufferedImage bufferedImage = ImageIO.read(new File(imgPath));
+                    int originalWidth = bufferedImage.getWidth();
+                    int originalHeight = bufferedImage.getHeight();
+
+                    // Fixed width, flexible height
+                    int targetWidthEMU = Units.toEMU(200); // You can change this width
+                    double aspectRatio = (double) originalHeight / originalWidth;
+                    int targetHeightEMU = (int) (targetWidthEMU * aspectRatio);
+
+                    run.addPicture(is, Document.PICTURE_TYPE_PNG, imgPath, targetWidthEMU, targetHeightEMU);
                 }
 
                 document.createParagraph(); // Spacer
@@ -40,4 +50,3 @@ public class PicLayout {
         }
     }
 }
-
